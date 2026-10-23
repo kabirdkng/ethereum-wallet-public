@@ -1,0 +1,204 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model CloudBackup {
+  id                String   @id @default(uuid())
+  userId            String
+  walletAddress     String
+  encryptedMnemonic String
+  passwordHash      String?
+  recoveryHint      String?
+  backupSource      String   @default("manual")
+  oauthId           String?
+  label             String?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  User              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, isActive])
+  @@index([walletAddress])
+}
+
+model Contact {
+  id            String   @id @default(uuid())
+  userId        String
+  name          String
+  walletAddress String
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  User          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([walletAddress])
+  @@index([userId, walletAddress])
+}
+
+model EncryptedWallet {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  walletAddress String
+  encryptedData String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  User          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([walletAddress])
+}
+
+model OAuthRecoverySession {
+  id          String    @id @default(uuid())
+  nonce       String    @unique
+  userId      String
+  backupId    String
+  provider    String
+  status      String    @default("pending_oauth")
+  expiresAt   DateTime
+  verifiedAt  DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  User        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([nonce])
+  @@index([status, expiresAt])
+  @@index([userId])
+}
+
+model RecoveryCode {
+  id                String          @id @default(uuid())
+  recoveryRequestId String
+  shareIndex        Int
+  codeHash          String
+  createdAt         DateTime        @default(now())
+  RecoveryRequest   RecoveryRequest @relation(fields: [recoveryRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([recoveryRequestId, shareIndex])
+  @@index([recoveryRequestId])
+}
+
+model RecoveryContact {
+  id           String   @id @default(uuid())
+  userId       String
+  contactPhone String
+  contactName  String?
+  shareIndex   Int
+  share        String   @default("")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  User         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, shareIndex])
+  @@index([userId])
+  @@index([userId, isActive])
+}
+
+model RecoveryRequest {
+  id             String         @id @default(uuid())
+  userId         String
+  requiredShares Int
+  totalShares    Int
+  status         String         @default("pending")
+  expiresAt      DateTime
+  completedAt    DateTime?
+  createdAt      DateTime       @default(now())
+  RecoveryCode   RecoveryCode[]
+  User           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, expiresAt])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  User         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Transaction {
+  id               String            @id @default(uuid())
+  userId           String
+  txHash           String            @unique
+  type             TransactionType
+  token            TokenSymbol
+  amount           String
+  recipientAddress String?
+  senderAddress    String?
+  platformFee      String?
+  gasFee           String?
+  status           TransactionStatus @default(PENDING)
+  blockNumber      BigInt?
+  replacedByTxHash String?
+  createdAt        DateTime          @default(now())
+  confirmedAt      DateTime?
+  gasSponsored     Boolean           @default(false)
+  isAA             Boolean           @default(false)
+  userOpHash       String?           @unique
+  User             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id                   String                 @id @default(uuid())
+  email                String?                @unique
+  phone                String?                @unique
+  walletAddress        String?                @unique
+  pinHash              String?
+  oauthProvider        String?
+  oauthId              String?
+  profilePicture       String?
+  emailVerified        Boolean                @default(false)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  smartWalletAddress   String?                @unique
+  walletVersion        String                 @default("EOA")
+  CloudBackup          CloudBackup[]
+  Contact              Contact[]
+  EncryptedWallet      EncryptedWallet?
+  OAuthRecoverySession OAuthRecoverySession[]
+  RecoveryContact      RecoveryContact[]
+  RecoveryRequest      RecoveryRequest[]
+  Session              Session[]
+  Transaction          Transaction[]
+
+  @@unique([oauthProvider, oauthId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+enum RecoveryMethod {
+  SHAMIR_SECRET_SHARING
+  CLOUD_BACKUP
+}
+
+enum TokenSymbol {
+  USDC
+  USDT
+  ETH
+}
+
+enum TransactionStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+}
+
+enum TransactionType {
+  SEND
+  RECEIVE
+}

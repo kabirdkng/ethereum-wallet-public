@@ -1,0 +1,8 @@
+version: 2
+authtoken: 2qaEv1re6O9RHkpAy2i00pGwYet_4uRm7xtk1X78dsexVaPVX
+
+tunnels:
+  nextjs-app:
+    addr: 3000
+    proto: http
+    domain: tamera-unpestered-undevastatingly.ngrok-free.dev
